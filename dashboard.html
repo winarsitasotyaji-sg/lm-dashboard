@@ -937,8 +937,8 @@ async function sendMessage() {
     });
 
     const json = await res.json();
-    const reply = json.data?.response_str || json.response_str ||
-                  json.output_str || json.message || json.response || '';
+    const reply = json.data?.response?.response_str || json.data?.response_str ||
+                  json.response_str || json.output_str || json.message || '';
 
     if (!reply) { typingEl.textContent = 'No response received.'; typingEl.classList.remove('typing'); sendBtn.disabled = false; return; }
 
