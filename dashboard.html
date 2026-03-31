@@ -805,8 +805,12 @@ async function sendMessage() {
     : text;
   _firstMsg = false;
 
+  // Route through local proxy (required when on Shopee VPN)
+  // Run: node proxy.js   before using the chatbot
+  const apiUrl = 'http://localhost:3001';
+
   try {
-    const res = await fetch(_smartCfg.url, {
+    const res = await fetch(apiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -828,8 +832,7 @@ async function sendMessage() {
     typingEl.innerHTML = reply.replace(/\n/g,'<br>');
     typingEl.classList.remove('typing');
   } catch(e) {
-    typingEl.innerHTML = 'Request failed: ' + e.message +
-      '<br><small>This may be a CORS restriction from smart.shopee.io. Try accessing the site from inside the Shopee network.</small>';
+    typingEl.innerHTML = '⚠️ Could not reach the AI proxy.<br><small>Make sure you are on Shopee VPN and run this in your terminal first:<br><code style="background:#F3F4F6;padding:2px 6px;border-radius:4px">node proxy.js</code><br>Then try again.</small>';
     typingEl.classList.remove('typing');
   }
 

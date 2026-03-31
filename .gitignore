@@ -10,9 +10,10 @@
 *.key
 service-account*.json
 
-# Seed scripts contain business data and credentials — run locally, do not commit
+# Seed scripts and proxy — run locally, do not commit
 seed-firestore.js
 seed-config.js
+proxy.js
 weekly_lm_dashboard.html
 
 # Node dependencies for seed script
