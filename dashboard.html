@@ -30,6 +30,7 @@
     }
     document.getElementById('user-email').textContent = user.email;
     document.getElementById('user-bar').style.display = 'flex';
+    _chatUserId = user.email;
     loadReport();
   });
 })();
@@ -322,6 +323,7 @@ async function loadReport() {
     renderHeatmapOps(d.heatmap_ops);
     renderFeatureAdoption(d.feature_adoption);
     renderInsights(d.insights, d.meta);
+    initChat(_chatUserId, d);
     document.getElementById('auth-gate').remove();
   } catch(err) {
     console.error(err);
@@ -645,5 +647,196 @@ function renderInsights(insights) {
     </div>`).join('');
 }
 </script>
+
+<!-- ── AI Chatbot ─────────────────────────────────────────────────────────── -->
+<style>
+  #chat-fab{position:fixed;bottom:28px;right:28px;z-index:1000;width:56px;height:56px;border-radius:50%;background:#EE4D2D;border:none;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;transition:transform 0.2s}
+  #chat-fab:hover{transform:scale(1.1)}
+  #chat-fab svg{width:26px;height:26px;fill:white}
+  #chat-panel{position:fixed;bottom:96px;right:28px;z-index:1000;width:380px;height:520px;background:#fff;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,0.18);display:none;flex-direction:column;font-family:'Segoe UI',Arial,sans-serif;overflow:hidden}
+  #chat-panel.open{display:flex}
+  #chat-header{background:linear-gradient(135deg,#1B2A4A 0%,#2D4A7A 100%);color:#fff;padding:14px 18px;display:flex;align-items:center;justify-content:space-between}
+  #chat-header-left{display:flex;align-items:center;gap:10px}
+  #chat-header-left .dot{width:8px;height:8px;background:#22C55E;border-radius:50%}
+  #chat-header h4{font-size:14px;font-weight:700;margin:0}
+  #chat-header p{font-size:11px;opacity:0.7;margin:0}
+  #chat-close{background:transparent;border:none;color:#fff;cursor:pointer;font-size:18px;padding:0;line-height:1}
+  #chat-messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;background:#F8FAFC}
+  .msg{max-width:85%;padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.5}
+  .msg.user{align-self:flex-end;background:#EE4D2D;color:#fff;border-bottom-right-radius:4px}
+  .msg.ai{align-self:flex-start;background:#fff;color:#1B2A4A;border:1px solid #E5E7EB;border-bottom-left-radius:4px;box-shadow:0 1px 4px rgba(0,0,0,0.06)}
+  .msg.typing{color:#6B7280;font-style:italic}
+  #chat-input-row{display:flex;gap:8px;padding:12px;border-top:1px solid #E5E7EB;background:#fff}
+  #chat-input{flex:1;border:1px solid #E5E7EB;border-radius:8px;padding:9px 12px;font-size:13px;outline:none;font-family:'Segoe UI',Arial,sans-serif;resize:none}
+  #chat-input:focus{border-color:#EE4D2D}
+  #chat-send{background:#EE4D2D;border:none;border-radius:8px;width:38px;height:38px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  #chat-send:disabled{background:#CBD5E1;cursor:default}
+  #chat-send svg{width:16px;height:16px;fill:white}
+  #chat-suggestions{padding:0 16px 12px;display:flex;flex-wrap:wrap;gap:6px}
+  .chip{background:#EFF6FF;border:1px solid #BFDBFE;border-radius:20px;padding:4px 10px;font-size:11px;color:#1D4ED8;cursor:pointer;white-space:nowrap}
+  .chip:hover{background:#DBEAFE}
+</style>
+
+<!-- Floating chat button -->
+<button id="chat-fab" onclick="toggleChat()" title="Ask AI about this data">
+  <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path d="M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.37 5.07L2 22l4.93-1.37C8.42 21.5 10.15 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm1 14H7v-2h6v2zm4-4H7v-2h10v2zm0-4H7V6h10v2z"/>
+  </svg>
+</button>
+
+<!-- Chat panel -->
+<div id="chat-panel">
+  <div id="chat-header">
+    <div id="chat-header-left">
+      <div class="dot"></div>
+      <div>
+        <h4>Dashboard AI Assistant</h4>
+        <p>Ask anything about this week's data</p>
+      </div>
+    </div>
+    <button id="chat-close" onclick="toggleChat()">✕</button>
+  </div>
+  <div id="chat-messages">
+    <div class="msg ai">Hi! I can answer questions about this week's LM performance data. What would you like to know?</div>
+  </div>
+  <div id="chat-suggestions">
+    <span class="chip" onclick="sendChip(this)">Which market has the lowest DSR?</span>
+    <span class="chip" onclick="sendChip(this)">What's the biggest concern this week?</span>
+    <span class="chip" onclick="sendChip(this)">How is Brazil performing?</span>
+    <span class="chip" onclick="sendChip(this)">Summarise feature adoption gaps</span>
+  </div>
+  <div id="chat-input-row">
+    <textarea id="chat-input" rows="1" placeholder="Ask about the data..." onkeydown="handleKey(event)"></textarea>
+    <button id="chat-send" onclick="sendMessage()">
+      <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+    </button>
+  </div>
+</div>
+
+<script>
+// ── Chatbot state ─────────────────────────────────────────────────────────
+let _smartCfg   = null;   // fetched from Firestore config/smart_api
+let _threadId   = 'lm-' + Date.now() + '-' + Math.random().toString(36).slice(2,7);
+let _dataCtx    = '';     // dashboard data summary injected as context
+let _firstMsg   = true;   // include data context on first message only
+let _chatUserId = '';     // logged-in user email
+
+// Called after auth + data load — store user email and build data context
+function initChat(userEmail, reportData) {
+  _chatUserId = userEmail;
+  if (reportData) _dataCtx = buildContext(reportData);
+}
+
+function buildContext(d) {
+  const m = d.meta || {};
+  const kpis = (d.kpi_cards || []).map(k => `${k.label}: ${k.value} (${k.wow_text})`).join(', ');
+  const dsr  = d.charts && d.charts.dsr
+    ? d.charts.dsr.markets.map((mk,i) => `${mk}:${d.charts.dsr.curr[i]}%`).join(', ')
+    : '';
+  const loss = d.charts && d.charts.loss
+    ? d.charts.loss.markets.map((mk,i) => `${mk}:${d.charts.loss.data[i]}%`).join(', ')
+    : '';
+  const insights = (d.insights || []).flatMap(g => g.items.map(it =>
+    it.text.replace(/<[^>]+>/g,''))).join(' | ');
+
+  return `[LM Weekly Dashboard Context — Week of ${m.week_label || ''}]
+KPI Summary: ${kpis}
+DSR by market: ${dsr}
+Total Loss Rate by market: ${loss}
+Key insights: ${insights}`;
+}
+
+// ── UI helpers ────────────────────────────────────────────────────────────
+function toggleChat() {
+  const panel = document.getElementById('chat-panel');
+  panel.classList.toggle('open');
+  if (panel.classList.contains('open'))
+    document.getElementById('chat-input').focus();
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+}
+
+function sendChip(el) {
+  document.getElementById('chat-input').value = el.textContent;
+  document.getElementById('chat-suggestions').style.display = 'none';
+  sendMessage();
+}
+
+function appendMsg(text, role) {
+  const box = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.className = 'msg ' + role;
+  div.innerHTML = text;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+  return div;
+}
+
+// ── Send message ──────────────────────────────────────────────────────────
+async function sendMessage() {
+  const input  = document.getElementById('chat-input');
+  const sendBtn = document.getElementById('chat-send');
+  const text   = input.value.trim();
+  if (!text) return;
+
+  input.value = '';
+  sendBtn.disabled = true;
+  appendMsg(text, 'user');
+  const typingEl = appendMsg('Thinking...', 'ai typing');
+
+  // Fetch Smart API config from Firestore (once)
+  if (!_smartCfg) {
+    try {
+      const snap = await firebase.firestore().collection('config').doc('smart_api').get();
+      _smartCfg = snap.data();
+    } catch(e) {
+      typingEl.textContent = 'Could not load AI config. Please try again.';
+      typingEl.classList.remove('typing');
+      sendBtn.disabled = false;
+      return;
+    }
+  }
+
+  // Prepend data context to first message
+  const inputStr = _firstMsg
+    ? _dataCtx + '\n\nUser question: ' + text
+    : text;
+  _firstMsg = false;
+
+  try {
+    const res = await fetch(_smartCfg.url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        endpoint_deployment_hash_id: _smartCfg.endpoint_deployment_hash_id,
+        endpoint_deployment_key:     _smartCfg.endpoint_deployment_key,
+        user_id: _chatUserId,
+        message: {
+          input_str: inputStr,
+          thread_id: _threadId
+        }
+      })
+    });
+
+    const json = await res.json();
+    // Extract reply — try common response fields
+    const reply = json.output_str || json.message || json.response ||
+                  json.data?.output_str || JSON.stringify(json);
+
+    typingEl.innerHTML = reply.replace(/\n/g,'<br>');
+    typingEl.classList.remove('typing');
+  } catch(e) {
+    typingEl.innerHTML = 'Request failed: ' + e.message +
+      '<br><small>This may be a CORS restriction from smart.shopee.io. Try accessing the site from inside the Shopee network.</small>';
+    typingEl.classList.remove('typing');
+  }
+
+  sendBtn.disabled = false;
+  document.getElementById('chat-input').focus();
+}
+</script>
+<!-- ── End AI Chatbot ──────────────────────────────────────────────────── -->
 </body>
 </html>

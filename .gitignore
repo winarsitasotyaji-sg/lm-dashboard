@@ -10,8 +10,9 @@
 *.key
 service-account*.json
 
-# Seed script contains all business data — run locally, do not commit
+# Seed scripts contain business data and credentials — run locally, do not commit
 seed-firestore.js
+seed-config.js
 weekly_lm_dashboard.html
 
 # Node dependencies for seed script

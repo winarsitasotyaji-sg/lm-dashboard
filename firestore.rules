@@ -16,6 +16,14 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Allow authenticated users to read API config (credentials stored here, not in code)
+    match /config/{docId} {
+      allow read: if request.auth != null
+                  && (request.auth.token.email.matches('.*@spxexpress\\.com')
+                   || request.auth.token.email.matches('.*@shopee\\.com'));
+      allow write: if false;
+    }
+
     // Deny everything else
     match /{document=**} {
       allow read, write: if false;
