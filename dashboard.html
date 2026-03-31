@@ -39,6 +39,7 @@ function signOut(){ firebase.auth().signOut().then(function(){ window.location.r
 <!-- ── End Auth Gate ───────────────────────────────────────────────────── -->
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <style>
   :root {
     --shopee-orange: #EE4D2D;
@@ -675,6 +676,19 @@ function renderInsights(insights) {
   #chat-suggestions{padding:0 16px 12px;display:flex;flex-wrap:wrap;gap:6px}
   .chip{background:#EFF6FF;border:1px solid #BFDBFE;border-radius:20px;padding:4px 10px;font-size:11px;color:#1D4ED8;cursor:pointer;white-space:nowrap}
   .chip:hover{background:#DBEAFE}
+  /* Markdown rendering inside AI bubbles */
+  .msg.ai p{margin:0 0 6px}
+  .msg.ai p:last-child{margin-bottom:0}
+  .msg.ai strong{color:#1B2A4A;font-weight:700}
+  .msg.ai h1,.msg.ai h2,.msg.ai h3,.msg.ai h4{font-size:13px;font-weight:700;color:#1B2A4A;margin:8px 0 4px}
+  .msg.ai ul,.msg.ai ol{padding-left:16px;margin:4px 0}
+  .msg.ai li{margin-bottom:3px}
+  .msg.ai table{border-collapse:collapse;width:100%;font-size:12px;margin:8px 0}
+  .msg.ai th{background:#1B2A4A;color:#fff;padding:6px 8px;text-align:left;font-weight:600}
+  .msg.ai td{padding:5px 8px;border-bottom:1px solid #E5E7EB}
+  .msg.ai tr:nth-child(even) td{background:#F8FAFC}
+  .msg.ai code{background:#F3F4F6;padding:1px 5px;border-radius:4px;font-size:11px;font-family:monospace}
+  .msg.ai hr{border:none;border-top:1px solid #E5E7EB;margin:8px 0}
   /* Proxy setup modal */
   #proxy-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:2000;align-items:center;justify-content:center}
   #proxy-modal.show{display:flex}
@@ -923,11 +937,12 @@ async function sendMessage() {
     });
 
     const json = await res.json();
-    // Extract reply — try common response fields
-    const reply = json.output_str || json.message || json.response ||
-                  json.data?.output_str || JSON.stringify(json);
+    const reply = json.data?.response_str || json.response_str ||
+                  json.output_str || json.message || json.response || '';
 
-    typingEl.innerHTML = reply.replace(/\n/g,'<br>');
+    if (!reply) { typingEl.textContent = 'No response received.'; typingEl.classList.remove('typing'); sendBtn.disabled = false; return; }
+
+    typingEl.innerHTML = marked.parse(reply);
     typingEl.classList.remove('typing');
   } catch(e) {
     typingEl.remove();
