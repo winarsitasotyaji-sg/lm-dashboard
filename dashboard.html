@@ -782,6 +782,16 @@ let _firstMsg        = true;
 let _pendingRetryText = '';  // stores unsent message to retry after proxy starts
 
 // ── Proxy modal ───────────────────────────────────────────────────────────
+async function checkProxy() {
+  try {
+    const res = await fetch('http://localhost:3001', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: '{}', signal: AbortSignal.timeout(2000)
+    });
+    return true; // proxy responded (even with an error body, it's running)
+  } catch(e) { return false; }
+}
+
 function showProxyModal() { document.getElementById('proxy-modal').classList.add('show'); }
 function closeProxyModal() { document.getElementById('proxy-modal').classList.remove('show'); }
 function retryFromModal() {
@@ -827,8 +837,16 @@ Key insights: ${insights}`;
 }
 
 // ── UI helpers ────────────────────────────────────────────────────────────
-function toggleChat() {
+async function toggleChat() {
   const panel = document.getElementById('chat-panel');
+  const isOpening = !panel.classList.contains('open');
+
+  if (isOpening) {
+    // Check proxy is alive before opening chat
+    const alive = await checkProxy();
+    if (!alive) { showProxyModal(); return; }
+  }
+
   panel.classList.toggle('open');
   if (panel.classList.contains('open'))
     document.getElementById('chat-input').focus();
