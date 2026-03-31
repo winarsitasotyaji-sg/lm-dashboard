@@ -1,0 +1,13 @@
+# macOS
+.DS_Store
+
+# Editor
+.vscode/
+*.swp
+
+# Never commit real secrets (keep firebase-config.js in the repo —
+# Firebase web config is a public client-side identifier, but restrict
+# the API key to your GitHub Pages domain in Google Cloud Console)
+.env
+*.key
+service-account*.json
