@@ -1,0 +1,11 @@
+{
+  "name": "lm-dashboard-seed",
+  "version": "1.0.0",
+  "description": "Firestore seed script for LM Dashboard",
+  "scripts": {
+    "seed": "node seed-firestore.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.0.0"
+  }
+}
