@@ -10,11 +10,11 @@
 *.key
 service-account*.json
 
-# Seed scripts and proxy — run locally, do not commit
+# Seed scripts — run locally, do not commit
 seed-firestore.js
 seed-config.js
-proxy.js
 weekly_lm_dashboard.html
+# proxy.js is committed — it has no credentials, safe to be public
 
 # Node dependencies for seed script
 node_modules/

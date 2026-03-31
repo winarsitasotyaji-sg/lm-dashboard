@@ -712,40 +712,65 @@ function renderInsights(insights) {
 <!-- Proxy setup modal -->
 <div id="proxy-modal">
   <div id="proxy-modal-box">
-    <h3>🔌 Start the AI Proxy First</h3>
-    <p class="sub">The chatbot needs a local proxy to reach the Shopee SMART AI. It takes 5 seconds to start.</p>
+    <h3>🔌 One-time setup needed to use the AI chatbot</h3>
+    <p class="sub">The AI connects to Shopee's internal network, so you need to run a small helper script on your computer first. Follow the steps below — it only takes a minute.</p>
 
     <div class="proxy-step">
       <div class="proxy-step-num">1</div>
       <div class="proxy-step-text">
-        <strong>Connect to Shopee VPN</strong> (if not already connected)
+        <strong>Make sure you're connected to Shopee VPN</strong>
       </div>
     </div>
 
     <div class="proxy-step">
       <div class="proxy-step-num">2</div>
       <div class="proxy-step-text">
-        <strong>Double-click this file</strong> in your project folder — it opens a terminal automatically:
-        <div class="cmd-box">
-          <span>📄 Start Chatbot Proxy.command</span>
-        </div>
-        <div style="margin-top:6px;font-size:12px;color:#6B7280">Or run in terminal:</div>
-        <div class="cmd-box">
-          <span id="proxy-cmd-text">node proxy.js</span>
-          <button class="cmd-copy" onclick="copyCmd()">Copy</button>
-        </div>
+        <strong>Install Node.js</strong> if you haven't already —
+        <a href="https://nodejs.org" target="_blank" style="color:#EE4D2D">download from nodejs.org</a>
+        (free, takes ~2 min)
       </div>
     </div>
 
     <div class="proxy-step">
       <div class="proxy-step-num">3</div>
       <div class="proxy-step-text">
-        <strong>Come back here</strong> and click "Try Again" below
+        <strong>Download the proxy script</strong> and save it anywhere (e.g. your Desktop or Downloads folder)
+        <br/>
+        <button onclick="downloadProxy()" style="margin-top:10px;display:inline-flex;align-items:center;gap:8px;background:#1B2A4A;color:#fff;border:none;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:600;cursor:pointer">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+          Download proxy.js
+        </button>
+      </div>
+    </div>
+
+    <div class="proxy-step">
+      <div class="proxy-step-num">4</div>
+      <div class="proxy-step-text">
+        <strong>Open Terminal</strong> (Mac: press <kbd style="background:#F3F4F6;border:1px solid #D1D5DB;border-radius:3px;padding:1px 5px;font-size:11px">⌘ Space</kbd> → type "Terminal" → Enter)
+        <br/>then run these two commands:
+        <div class="cmd-box" style="margin-top:8px;flex-direction:column;align-items:flex-start;gap:4px">
+          <div style="display:flex;justify-content:space-between;width:100%">
+            <span id="proxy-cmd-cd">cd ~/Downloads</span>
+            <button class="cmd-copy" onclick="copyText('cd ~/Downloads', this)">Copy</button>
+          </div>
+          <div style="display:flex;justify-content:space-between;width:100%">
+            <span>node proxy.js</span>
+            <button class="cmd-copy" onclick="copyText('node proxy.js', this)">Copy</button>
+          </div>
+        </div>
+        <div style="margin-top:6px;font-size:11px;color:#9CA3AF">If you saved proxy.js to a different folder, replace <code style="background:#1B2A4A;color:#22C55E;padding:1px 4px;border-radius:3px">~/Downloads</code> with that path.</div>
+      </div>
+    </div>
+
+    <div class="proxy-step">
+      <div class="proxy-step-num">5</div>
+      <div class="proxy-step-text">
+        <strong>Keep Terminal open</strong>, come back here and click <strong>Try Again</strong>
       </div>
     </div>
 
     <div class="proxy-modal-btns">
-      <button class="btn-try-again" onclick="retryFromModal()">Try Again</button>
+      <button class="btn-try-again" onclick="retryFromModal()">✓ I've started it — Try Again</button>
       <button class="btn-dismiss" onclick="closeProxyModal()">Dismiss</button>
     </div>
   </div>
@@ -816,12 +841,90 @@ function retryFromModal() {
     sendMessage();
   }
 }
-function copyCmd() {
-  navigator.clipboard.writeText('node proxy.js').then(() => {
-    const btn = document.querySelector('.cmd-copy');
+function copyText(text, btn) {
+  navigator.clipboard.writeText(text).then(() => {
     btn.textContent = 'Copied!';
     setTimeout(() => btn.textContent = 'Copy', 2000);
   });
+}
+
+function downloadProxy() {
+  const proxyCode = `/**
+ * proxy.js — LM Dashboard AI Chatbot Proxy
+ * Forwards requests from your browser to the Shopee SMART AI.
+ *
+ * Requirements: Node.js (https://nodejs.org)
+ * Usage:
+ *   1. Connect to Shopee VPN
+ *   2. Open Terminal in the folder where you saved this file
+ *   3. Run: node proxy.js
+ *   4. Keep this terminal open while using the chatbot
+ */
+
+const http  = require('http');
+const https = require('https');
+
+const PORT        = 3001;
+const SMART_HOST  = 'smart.shopee.io';
+const SMART_PATH  = '/apis/smart/v1/orchestrator/deployments/invoke';
+
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin':  '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type'
+};
+
+const server = http.createServer((req, res) => {
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204, CORS_HEADERS);
+    res.end();
+    return;
+  }
+  if (req.method !== 'POST') {
+    res.writeHead(405, CORS_HEADERS);
+    res.end('Method not allowed');
+    return;
+  }
+  let body = '';
+  req.on('data', chunk => body += chunk);
+  req.on('end', () => {
+    const options = {
+      hostname: SMART_HOST,
+      path:     SMART_PATH,
+      method:   'POST',
+      headers:  { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) }
+    };
+    const proxyReq = https.request(options, proxyRes => {
+      let data = '';
+      proxyRes.on('data', chunk => data += chunk);
+      proxyRes.on('end', () => {
+        res.writeHead(proxyRes.statusCode, { ...CORS_HEADERS, 'Content-Type': 'application/json' });
+        res.end(data);
+      });
+    });
+    proxyReq.on('error', err => {
+      res.writeHead(502, CORS_HEADERS);
+      res.end(JSON.stringify({ error: 'Proxy error: ' + err.message }));
+    });
+    proxyReq.write(body);
+    proxyReq.end();
+  });
+});
+
+server.listen(PORT, () => {
+  console.log('\\n  ✓ AI Chatbot proxy is running!');
+  console.log('  Go back to the dashboard and click Try Again.');
+  console.log('  Keep this window open while chatting.');
+  console.log('  Press Ctrl+C to stop.\\n');
+});
+`;
+  const blob = new Blob([proxyCode], { type: 'text/javascript' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = 'proxy.js';
+  a.click();
+  URL.revokeObjectURL(url);
 }
 let _chatUserId = '';     // logged-in user email
 
